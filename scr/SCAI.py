@@ -68,11 +68,11 @@ def ProgressBar(total, downloaded):
 
 def Update():
     local_version_file = "version.txt"
-    local_exe = "assembly.exe"
+    local_exe = "SCAI.exe"
     remote_base = "https://raw.githubusercontent.com/the-real-N0NAME/SCAI/main/release"
     remote_version_url = f"{remote_base}/version.txt"
-    remote_exe_url = f"{remote_base}/assembly.exe"
-    temp_exe = "assembly_new.exe"
+    remote_exe_url = f"{remote_base}/SCAI.exe"
+    temp_exe = "SCAI_new.exe"
 
     local_version = "none"
     if os.path.exists(local_version_file):
@@ -88,6 +88,7 @@ def Update():
         log(f"Remote version: {remote_version}")
     except Exception as e:
         log(f"ERROR: Could not fetch remote version: {e}")
+        input("Press Enter to continue...")
         return
 
     if local_version == remote_version:
@@ -111,6 +112,7 @@ def Update():
         log("Download complete.")
     except Exception as e:
         log(f"ERROR: Failed to download .exe: {e}")
+        input("Press Enter to continue...")
         return
 
     try:
@@ -118,6 +120,7 @@ def Update():
         os.replace(temp_exe, local_exe)
     except Exception as e:
         log(f"ERROR: Failed to replace executable: {e}")
+        input("Press Enter to continue...") 
         return
 
     try:
@@ -126,6 +129,7 @@ def Update():
         log("Version file updated.")
     except Exception as e:
         log(f"WARNING: Could not update version.txt: {e}")
+        input("Press Enter to continue...")
 
     log("Launching updated version...")
     subprocess.Popen([os.path.abspath(local_exe)])
