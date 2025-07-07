@@ -51,11 +51,11 @@ def CheckForUpdate():
 
 def Update():
     local_version_file = "version.txt"
-    local_exe = "assembly.exe"
+    local_exe = "SCAI.exe"
     remote_base = "https://raw.githubusercontent.com/the-real-N0NAME/SCAI/main/release"
     remote_version_url = f"{remote_base}/version.txt"
-    remote_exe_url = f"{remote_base}/assembly.exe"
-    temp_exe = "assembly_new.exe"
+    remote_exe_url = f"{remote_base}/SCAI.exe"
+    temp_exe = "SCAI_new.exe"
 
     local_version = "none"
     if os.path.exists(local_version_file):
