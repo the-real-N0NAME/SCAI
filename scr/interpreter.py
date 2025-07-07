@@ -4,6 +4,7 @@ import os
 import sys
 import glob
 import shutil
+import subprocess
 import requests
 
 if os.name == 'nt':
@@ -47,6 +48,60 @@ def CheckForUpdate():
         return f"update available {v_local} --> {v_remote}"
 
     return None
+
+def Update():
+    local_version_file = "version.txt"
+    local_exe = "assembly.exe"
+    remote_base = "https://raw.githubusercontent.com/the-real-N0NAME/SCAI/main/release"
+    remote_version_url = f"{remote_base}/version.txt"
+    remote_exe_url = f"{remote_base}/assembly.exe"
+    temp_exe = "assembly_new.exe"
+
+    local_version = "none"
+    if os.path.exists(local_version_file):
+        with open(local_version_file, "r") as f:
+            local_version = f.read().strip()
+
+    try:
+        response = requests.get(remote_version_url)
+        response.raise_for_status()
+        remote_version = response.text.strip()
+    except Exception as e:
+        print(f"Error fetching remote version: {e}")
+        return
+
+    if local_version == remote_version:
+        print("You already have the latest version.")
+        return
+
+    print(f"Update available: {local_version} --> {remote_version}")
+
+    try:
+        with requests.get(remote_exe_url, stream=True) as r:
+            r.raise_for_status()
+            with open(temp_exe, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+    except Exception as e:
+        print(f"Failed to download new .exe: {e}")
+        return
+
+    try:
+        os.replace(temp_exe, local_exe)
+    except Exception as e:
+        print(f"Failed to replace executable: {e}")
+        return
+
+    try:
+        with open(local_version_file, "w") as f:
+            f.write(remote_version)
+    except Exception as e:
+        print(f"Warning: Could not update version.txt: {e}")
+
+    print("Launching updated version...")
+    subprocess.Popen([os.path.abspath(local_exe)])
+    sys.exit(0)
+
 
 # Main functions
 
@@ -220,7 +275,7 @@ def MainMenu():
 
     UpdateAV = CheckForUpdate()
     if UpdateAV:
-        options.append(("Update", lambda: print(UpdateAV)))
+        options.append(("Update", Update))
 
     if SaveMainMenu and os.path.exists("menu.json"):
         with open("menu.json", "r") as f:
@@ -354,7 +409,7 @@ def main():
         print(UpdateAV)
         update_choice = input("Do you want to update? (y/n): ").strip().lower()
         if update_choice == 'y':
-            pass
+            Update()
         else:
             print("Continuing without update...")
 
