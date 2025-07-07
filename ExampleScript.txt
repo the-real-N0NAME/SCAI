@@ -1,0 +1,12 @@
+Load R1 [41]
+Load R4 [40]
+Set R2 = 2
+Neg R2
+Add R1, R2, R1
+JP R1, #5
+Set R3 = 1
+Add R1, R3, R1
+JP R1, #11
+Jump #13
+Add R4, R3, R4
+Store R4 [40]
