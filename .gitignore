@@ -1,2 +1,3 @@
 Scripts/*
 *.json
+/scr/version.txt

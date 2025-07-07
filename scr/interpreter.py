@@ -4,6 +4,7 @@ import os
 import sys
 import glob
 import shutil
+import requests
 
 if os.name == 'nt':
     import msvcrt
@@ -22,6 +23,32 @@ File = "none"
 DebugMode = False
 SaveMainMenu = True
 
+# Updating
+LOCAL_VERSION_FILE = "version.txt"
+REMOTE_VERSION_URL = "https://raw.githubusercontent.com/the-real-N0NAME/SCAI/main/release/version.txt"
+
+def CheckForUpdate():
+    global LOCAL_VERSION_FILE, REMOTE_VERSION_URL
+    if not os.path.exists(LOCAL_VERSION_FILE):
+        return "update available unknown --> unknown"
+
+    with open(LOCAL_VERSION_FILE, "r") as f:
+        v_local = f.read().strip()
+
+    try:
+        r = requests.get(REMOTE_VERSION_URL)
+        r.raise_for_status()
+        v_remote = r.text.strip()
+    except Exception as e:
+        print(f"Failed to check remote version: {e}")
+        return None
+
+    if v_local != v_remote:
+        return f"update available {v_local} --> {v_remote}"
+
+    return None
+
+# Main functions
 
 def load_memory():
     if os.path.exists(MEMORY_FILE):
@@ -191,6 +218,10 @@ def MainMenu():
         ("Exit", quit)
     ]
 
+    UpdateAV = CheckForUpdate()
+    if UpdateAV:
+        options.append(("Update", lambda: print(UpdateAV)))
+
     if SaveMainMenu and os.path.exists("menu.json"):
         with open("menu.json", "r") as f:
             saved_menu = json.load(f)
@@ -202,6 +233,8 @@ def MainMenu():
     while True:
         clear_screen()
         print("=== Assembly Interpreter ===")
+        if UpdateAV:
+            print(UpdateAV)
         print(f"File to execute: {File}, Debug Mode: {'ON' if DebugMode else 'OFF'}")
         for i, (name, _) in enumerate(options):
             prefix = "> " if i == index else "  "
@@ -305,7 +338,7 @@ def main():
     if not filename and File == "none":
         MainMenu()
 
-    if not File:
+    if File == "none":
         if not os.path.exists(filename):
             print("Assembly file missing or invalid.")
             return
@@ -315,6 +348,15 @@ def main():
             return
         else:
             filename = File
+
+    UpdateAV = CheckForUpdate()
+    if UpdateAV:
+        print(UpdateAV)
+        update_choice = input("Do you want to update? (y/n): ").strip().lower()
+        if update_choice == 'y':
+            pass
+        else:
+            print("Continuing without update...")
 
     clear_screen()
     load_memory()
