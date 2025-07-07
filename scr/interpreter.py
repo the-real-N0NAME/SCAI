@@ -6,6 +6,7 @@ import glob
 import shutil
 import subprocess
 import requests
+import time
 
 if os.name == 'nt':
     import msvcrt
@@ -49,58 +50,87 @@ def CheckForUpdate():
 
     return None
 
+import os
+import sys
+import requests
+import subprocess
+import time
+
+def log(msg):
+    print(f"[{time.strftime('%H:%M:%S')}] {msg}")
+
+def ProgressBar(total, downloaded):
+    bar_length = 40
+    filled_length = int(bar_length * downloaded // total)
+    bar = '=' * filled_length + '-' * (bar_length - filled_length)
+    percent = (downloaded / total) * 100
+    print(f"\r[{bar}] {percent:.1f}%", end='', flush=True)
+
 def Update():
     local_version_file = "version.txt"
-    local_exe = "SCAI.exe"
+    local_exe = "assembly.exe"
     remote_base = "https://raw.githubusercontent.com/the-real-N0NAME/SCAI/main/release"
     remote_version_url = f"{remote_base}/version.txt"
-    remote_exe_url = f"{remote_base}/SCAI.exe"
-    temp_exe = "SCAI_new.exe"
+    remote_exe_url = f"{remote_base}/assembly.exe"
+    temp_exe = "assembly_new.exe"
 
     local_version = "none"
     if os.path.exists(local_version_file):
         with open(local_version_file, "r") as f:
             local_version = f.read().strip()
+    log(f"Local version: {local_version}")
 
     try:
+        log("Fetching remote version info...")
         response = requests.get(remote_version_url)
         response.raise_for_status()
         remote_version = response.text.strip()
+        log(f"Remote version: {remote_version}")
     except Exception as e:
-        print(f"Error fetching remote version: {e}")
+        log(f"ERROR: Could not fetch remote version: {e}")
         return
 
     if local_version == remote_version:
-        print("You already have the latest version.")
+        log("You already have the latest version.")
         return
 
-    print(f"Update available: {local_version} --> {remote_version}")
+    log("New version available. Downloading...")
 
     try:
         with requests.get(remote_exe_url, stream=True) as r:
             r.raise_for_status()
+            total = int(r.headers.get('content-length', 0))
+            downloaded = 0
             with open(temp_exe, "wb") as f:
                 for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        ProgressBar(total, downloaded)
+        print()  # new line after progress bar
+        log("Download complete.")
     except Exception as e:
-        print(f"Failed to download new .exe: {e}")
+        log(f"ERROR: Failed to download .exe: {e}")
         return
 
     try:
+        log("Replacing executable...")
         os.replace(temp_exe, local_exe)
     except Exception as e:
-        print(f"Failed to replace executable: {e}")
+        log(f"ERROR: Failed to replace executable: {e}")
         return
 
     try:
         with open(local_version_file, "w") as f:
             f.write(remote_version)
+        log("Version file updated.")
     except Exception as e:
-        print(f"Warning: Could not update version.txt: {e}")
+        log(f"WARNING: Could not update version.txt: {e}")
 
-    print("Launching updated version...")
+    log("Launching updated version...")
     subprocess.Popen([os.path.abspath(local_exe)])
     sys.exit(0)
+
 
 
 # Main functions
