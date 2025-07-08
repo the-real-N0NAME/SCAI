@@ -42,7 +42,7 @@ def CheckForUpdate():
         r.raise_for_status()
         v_remote = r.text.strip()
     except Exception as e:
-        print(f"Failed to check remote version: {e}")
+        Log(f"Failed to check remote version: {e}", level="ERROR", Timestamp=True)
         return None
 
     if v_local != v_remote:
@@ -56,8 +56,6 @@ import requests
 import subprocess
 import time
 
-def log(msg):
-    print(f"[{time.strftime('%H:%M:%S')}] {msg}")
 
 def ProgressBar(total, downloaded):
     bar_length = 40
@@ -75,8 +73,6 @@ def Update():
     remote_version_url = f"{remote_base}/version.txt"
     remote_exe_url = f"{remote_base}/SCAI.exe"
 
-    def log(msg):
-        print(f"[{time.strftime('%H:%M:%S')}] {msg}")
 
     local_version = "none"
     if os.path.exists(version_file):
@@ -88,15 +84,15 @@ def Update():
         r.raise_for_status()
         remote_version = r.text.strip()
     except Exception as e:
-        log(f"ERROR: Could not fetch remote version: {e}")
+        Log(f"Could not fetch remote version: {e}", level="ERROR", Timestamp=True)
         return
 
     if local_version == remote_version:
-        log("You already have the latest version.")
+        Log("You already have the latest version.", level="INFO", Timestamp=True)
         return
 
-    log(f"Update available: {local_version} --> {remote_version}")
-    log("Downloading new executable...")
+    Log(f"Update available: {local_version} --> {remote_version}", "WARNING", Timestamp=True)
+    Log("Downloading new executable...", level="INFO", Timestamp=True)
 
     try:
         with requests.get(remote_exe_url, stream=True) as r:
@@ -105,17 +101,17 @@ def Update():
                 for chunk in r.iter_content(chunk_size=8192):
                     f.write(chunk)
     except Exception as e:
-        log(f"ERROR: Failed to download new .exe: {e}")
+        Log(f"Failed to download new .exe: {e}", level="ERROR", Timestamp=True)
         return
 
-    log("Writing new version file...")
+    Log("Writing new version file...", level="INFO", Timestamp=True)
     try:
         with open(version_file, "w") as f:
             f.write(remote_version)
     except Exception as e:
-        log(f"WARNING: Could not update version file: {e}")
+        Log(f"Could not update version file: {e}", level="WARNING", Timestamp=True)
 
-    log("Creating updater script...")
+    Log("Creating updater script...", level="INFO", Timestamp=True)
 
     updater_script = f"""@echo off
 timeout /t 1 >nul
@@ -135,7 +131,7 @@ del "%~f0"
     with open("update.bat", "w") as f:
         f.write(updater_script)
 
-    log("Launching updater and exiting...")
+    Log("Launching updater and exiting...", level="INFO", Timestamp=True)
     subprocess.Popen(["cmd", "/c", "start", "", "update.bat"])
     sys.exit(0)
 
@@ -178,10 +174,36 @@ def clear_screen():
     # Use ANSI escape codes to clear screen and move cursor to home position
     print("\033[2J\033[H", end='')
 
-def colorize(text, bg="red"):
-    colors = {"red": "41", "green": "42", "blue": "44", "default": "49"}
-    code = colors.get(bg, "49")
-    return f"\033[{code}m{text}\033[0m"
+def colorize(text, fg=None, bg=None):
+    fg_codes = {
+        "black": "30", "red": "31", "green": "32", "yellow": "33",
+        "blue": "34", "magenta": "35", "cyan": "36", "white": "37", "default": "39"
+    }
+    bg_codes = {
+        "black": "40", "red": "41", "green": "42", "yellow": "43",
+        "blue": "44", "magenta": "45", "cyan": "46", "white": "47", "default": "49"
+    }
+
+    codes = []
+    if fg in fg_codes:
+        codes.append(fg_codes[fg])
+    if bg in bg_codes:
+        codes.append(bg_codes[bg])
+
+    return f"\033[{';'.join(codes)}m{text}\033[0m"
+
+def Log(message, level="ERROR", Timestamp=False):        
+    if level == "ERROR":
+        log = colorize(f"[{level}] {message}", fg="red")
+    elif level == "WARNING":
+        log = colorize(f"{message}", fg="yellow")
+    elif level == "INFO":
+        log = colorize(f"{message}", fg="blue")
+    if Timestamp:
+        log = f"[{time.strftime('%H:%M:%S')}] {log}"
+    print(log)
+
+
 
 def debug_prompt(line_num, instructions):
     global debug_view_mode
@@ -257,9 +279,9 @@ def execute(instructions, debug=False):
                     pc = target - 1
                     advance = False
             else:
-                print(f"Unknown instruction: {instructions[pc]}")
+                Log(f"Unknown instruction: {instructions[pc]}", level="ERROR")
         except Exception as e:
-            print(f"Error at line {pc+1}: {instructions[pc]} -> {e}")
+            Log(f"Error at line {pc+1}: {instructions[pc]} -> {e}", level="ERROR")
 
         if advance:
             pc += 1
@@ -271,7 +293,7 @@ def execute(instructions, debug=False):
         for addr in sorted(changed_memory, key=int):
             print(f"[{addr}] = {changed_memory[addr]}")
     else:
-        print("\nNo memory values changed.")
+        Log("\nNo memory values changed.", level="WARNING")
     input("\nPress Enter to continue...")
 
 def set_mode():
@@ -292,7 +314,7 @@ def set_mode():
                     memory[left] = right
                     print(f"memory[{left}] = {right}")
         except Exception as e:
-            print(f"Invalid input. Use format: R1 = 5 or 42 = 99")
+            Log(f"Invalid input. Use format: R1 = 5 or 42 = 99", level="ERROR")
     save_memory()
 
 def quit():
@@ -335,16 +357,18 @@ def MainMenu():
 
     while True:
         clear_screen()
-        print("=== Assembly Interpreter ===")
 
         if AfterUpdate:
-            print("\nWe noticed that you updated SCAI. The Cleaning up should be done.\n")
+            Log("We noticed that you updated SCAI. The Cleaning up should be done.", level="INFO")
         if UpdateAV:
-            print(f"\n{UpdateAV}\n")
+            Log(UpdateAV, level="WARNING")
         print(f"File to execute: {File}, Debug Mode: {'ON' if DebugMode else 'OFF'}")
+        header = "\n=== Assembly Interpreter ==="
+        print(header)
         for i, (name, _) in enumerate(options):
             prefix = "> " if i == index else "  "
-            print(prefix + name)
+            print("|" + prefix + name + " " * (len(header)-len(name)-len(prefix)-2) + "|")
+        print("=" * len(header))
 
         key = get_key()
         if key in (b'H', 'H') and index > 0:
@@ -409,7 +433,7 @@ def file_selection_menu():
     global File
     files = [f for f in glob.glob("*.txt")]
     if not files:
-        print("No .txt files found.")
+        Log("No .txt files found.", level="ERROR")
         sys.exit(1)
 
     index = 0
@@ -447,18 +471,18 @@ def main():
 
     if File == "none":
         if not os.path.exists(filename):
-            print("Assembly file missing or invalid.")
+            Log("Assembly file missing or invalid.", level="ERROR")
             return
     else:
         if not os.path.exists(File):
-            print("Assembly file missing or invalid.")
+            Log("Assembly file missing or invalid.", level="ERROR")
             return
         else:
             filename = File
 
     UpdateAV = CheckForUpdate()
     if UpdateAV:
-        print(UpdateAV)
+        Log(UpdateAV, level="WARNING")
         update_choice = input("Do you want to update? (y/n): ").strip().lower()
         if update_choice == 'y':
             Update()
