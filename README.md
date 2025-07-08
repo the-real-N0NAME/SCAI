@@ -91,6 +91,21 @@ If no file is provided via `-f`, you will see a menu listing `.txt` files.
 
 ## Example Script
 
+This script checks whether the value at memory address `[41]` is odd. If it is, it increments the value at memory address `[40]` by one. Here's how it works step by step:
+
+1. `Load R1 [41]` – Load value to test into `R1`.
+2. `Load R4 [40]` – Load the current counter into `R4`.
+3. `Set R2 = 2` – Used for modulo operation.
+4. `Neg R2` – Invert `R2` to `-2`.
+5. `Add R1, R2, R1` – Subtract 2 from `R1`.
+6. `JP R1, #5` – If result is still > 0, jump back to modulo test (skip incrementing).
+7. `Set R3 = 1` – Set increment value.
+8. `Add R1, R3, R1` – Adjust `R1` back (undo subtract).
+9. `JP R1, #11` – If it's still > 0, it's even – skip incrementing.
+10. `Jump #13` – Jump over increment step.
+11. `Add R4, R3, R4` – Increment the counter.
+12. `Store R4 [40]` – Save updated count back.
+
 ```asm
 Load R1 [41]
 Load R4 [40]
