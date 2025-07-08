@@ -67,74 +67,84 @@ def ProgressBar(total, downloaded):
     print(f"\r[{bar}] {percent:.1f}%", end='', flush=True)
 
 def Update():
-    local_version_file = "version.txt"
     local_exe = "SCAI.exe"
+    new_exe = "SCAI_new.exe"
+    old_exe = "SCAI_old.exe"
+    version_file = "version.txt"
     remote_base = "https://raw.githubusercontent.com/the-real-N0NAME/SCAI/main/release"
     remote_version_url = f"{remote_base}/version.txt"
     remote_exe_url = f"{remote_base}/SCAI.exe"
-    temp_exe = "SCAI_new.exe"
+
+    def log(msg):
+        print(f"[{time.strftime('%H:%M:%S')}] {msg}")
 
     local_version = "none"
-    if os.path.exists(local_version_file):
-        with open(local_version_file, "r") as f:
+    if os.path.exists(version_file):
+        with open(version_file, "r") as f:
             local_version = f.read().strip()
-    log(f"Local version: {local_version}")
 
     try:
-        log("Fetching remote version info...")
-        response = requests.get(remote_version_url)
-        response.raise_for_status()
-        remote_version = response.text.strip()
-        log(f"Remote version: {remote_version}")
+        r = requests.get(remote_version_url)
+        r.raise_for_status()
+        remote_version = r.text.strip()
     except Exception as e:
         log(f"ERROR: Could not fetch remote version: {e}")
-        input("Press Enter to continue...")
         return
 
     if local_version == remote_version:
         log("You already have the latest version.")
         return
 
-    log("New version available. Downloading...")
+    log(f"Update available: {local_version} --> {remote_version}")
+    log("Downloading new executable...")
 
     try:
         with requests.get(remote_exe_url, stream=True) as r:
             r.raise_for_status()
-            total = int(r.headers.get('content-length', 0))
-            downloaded = 0
-            with open(temp_exe, "wb") as f:
+            with open(new_exe, "wb") as f:
                 for chunk in r.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        ProgressBar(total, downloaded)
-        print()  # new line after progress bar
-        log("Download complete.")
+                    f.write(chunk)
     except Exception as e:
-        log(f"ERROR: Failed to download .exe: {e}")
-        input("Press Enter to continue...")
+        log(f"ERROR: Failed to download new .exe: {e}")
         return
 
+    log("Writing new version file...")
     try:
-        log("Replacing executable...")
-        os.replace(temp_exe, local_exe)
-    except Exception as e:
-        log(f"ERROR: Failed to replace executable: {e}")
-        input("Press Enter to continue...") 
-        return
-
-    try:
-        with open(local_version_file, "w") as f:
+        with open(version_file, "w") as f:
             f.write(remote_version)
-        log("Version file updated.")
     except Exception as e:
-        log(f"WARNING: Could not update version.txt: {e}")
-        input("Press Enter to continue...")
+        log(f"WARNING: Could not update version file: {e}")
 
-    log("Launching updated version...")
-    subprocess.Popen([os.path.abspath(local_exe)])
+    log("Creating updater script...")
+
+    updater_script = f"""@echo off
+timeout /t 1 >nul
+:waitloop
+tasklist | findstr /i "{local_exe}" >nul
+if not errorlevel 1 (
+    timeout /t 1 >nul
+    goto waitloop
+)
+if exist "{old_exe}" del "{old_exe}" >nul 2>&1
+ren "{local_exe}" "{old_exe}"
+move /Y "{new_exe}" "{local_exe}" >nul
+start "" "{local_exe}"
+del "%~f0"
+"""
+
+    with open("update.bat", "w") as f:
+        f.write(updater_script)
+
+    log("Launching updater and exiting...")
+    subprocess.Popen(["cmd", "/c", "start", "", "update.bat"])
     sys.exit(0)
 
+
+def CleanUp():
+    if os.path.exists("SCAI_old.exe"):
+        os.remove("SCAI_old.exe")
+        return True
+    return False
 
 
 # Main functions
@@ -307,6 +317,10 @@ def MainMenu():
         ("Exit", quit)
     ]
 
+    AfterUpdate = CleanUp()
+
+
+
     UpdateAV = CheckForUpdate()
     if UpdateAV:
         options.append(("Update", Update))
@@ -322,8 +336,11 @@ def MainMenu():
     while True:
         clear_screen()
         print("=== Assembly Interpreter ===")
+
+        if AfterUpdate:
+            print("\nWe noticed that you updated SCAI. The Cleaning up should be done.\n")
         if UpdateAV:
-            print(UpdateAV)
+            print(f"\n{UpdateAV}\n")
         print(f"File to execute: {File}, Debug Mode: {'ON' if DebugMode else 'OFF'}")
         for i, (name, _) in enumerate(options):
             prefix = "> " if i == index else "  "
@@ -350,6 +367,7 @@ def settings():
     def toggle_save():
         global SaveMainMenu
         SaveMainMenu = not SaveMainMenu
+
 
     options = [
         ("Debug Mode", lambda: toggle_debug()),
